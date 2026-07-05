@@ -1,0 +1,30 @@
+{
+  "mission_id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+  "created_at": "2025-01-15T10:00:00Z",
+  "natural_language_input": "Fly three drones in wedge formation at 20 metres",
+  "mission_type": "swarm",
+  "formation": {
+    "type": "wedge",
+    "spacing_m": 15.0,
+    "leader_id": "copter_1"
+  },
+  "vehicles": ["copter_1", "copter_2", "copter_3"],
+  "home_location": {
+    "lat": -35.363261,
+    "lon": 149.165230,
+    "alt_m": 0
+  },
+  "parameters": {
+    "altitude_m": 20,
+    "groundspeed_ms": 5,
+    "loops": 1,
+    "return_to_home": true,
+    "loiter_time_s": 0
+  },
+  "waypoints": [
+    {"id": 1, "lat": -35.362361, "lon": 149.164130, "alt_m": 20, "action": "none", "hold_s": 0},
+    {"id": 2, "lat": -35.362361, "lon": 149.166330, "alt_m": 20, "action": "none", "hold_s": 0},
+    {"id": 3, "lat": -35.364161, "lon": 149.166330, "alt_m": 20, "action": "none", "hold_s": 0},
+    {"id": 4, "lat": -35.364161, "lon": 149.164130, "alt_m": 20, "action": "none", "hold_s": 0}
+  ]
+}

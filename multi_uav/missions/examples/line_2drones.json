@@ -1,0 +1,30 @@
+{
+  "mission_id": "d4e5f6a7-b8c9-0123-defa-456789012345",
+  "created_at": "2025-01-15T10:00:00Z",
+  "natural_language_input": "Fly two drones side by side at 15 metres",
+  "mission_type": "swarm",
+  "formation": {
+    "type": "line",
+    "spacing_m": 12.0,
+    "leader_id": "copter_1"
+  },
+  "vehicles": ["copter_1", "copter_2"],
+  "home_location": {
+    "lat": -35.363261,
+    "lon": 149.165230,
+    "alt_m": 0
+  },
+  "parameters": {
+    "altitude_m": 15,
+    "groundspeed_ms": 5,
+    "loops": 1,
+    "return_to_home": true,
+    "loiter_time_s": 0
+  },
+  "waypoints": [
+    {"id": 1, "lat": -35.362361, "lon": 149.164130, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 2, "lat": -35.362361, "lon": 149.166330, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 3, "lat": -35.364161, "lon": 149.166330, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 4, "lat": -35.364161, "lon": 149.164130, "alt_m": 15, "action": "none", "hold_s": 0}
+  ]
+}

@@ -1,0 +1,7 @@
+openai>=1.0.0
+pymavlink>=2.4.40
+jsonschema>=4.21.0
+PyYAML>=6.0
+# Vision challenge (Challenge 3) — install separately if needed:
+# ultralytics>=8.0.0
+# opencv-python>=4.8.0

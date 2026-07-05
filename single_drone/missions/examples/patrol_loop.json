@@ -1,0 +1,25 @@
+{
+  "mission_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "created_at": "2025-01-15T10:00:00Z",
+  "natural_language_input": "Patrol the perimeter loop twice at 15 metres",
+  "vehicle_id": "copter_1",
+  "home_location": {
+    "lat": -35.363261,
+    "lon": 149.165230,
+    "alt_m": 0
+  },
+  "parameters": {
+    "altitude_m": 15,
+    "groundspeed_ms": 5,
+    "loops": 2,
+    "return_to_home": true,
+    "loiter_time_s": 0
+  },
+  "waypoints": [
+    {"id": 1, "lat": -35.362361, "lon": 149.164130, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 2, "lat": -35.362361, "lon": 149.166330, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 3, "lat": -35.364161, "lon": 149.166330, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 4, "lat": -35.364161, "lon": 149.164130, "alt_m": 15, "action": "none", "hold_s": 0},
+    {"id": 5, "lat": -35.362361, "lon": 149.164130, "alt_m": 15, "action": "none", "hold_s": 0}
+  ]
+}

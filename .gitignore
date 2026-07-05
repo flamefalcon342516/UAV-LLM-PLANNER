@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+
+# Generated simulation/runtime artifacts
+*.tlog
+*.tlog.raw
+*.parm
+llm_raw_output.json
+snapshots/
+
+# Old project snapshot, not source
+omokai-uav.zip
+
+# Editor/tooling
+.vscode/browse.vc.db

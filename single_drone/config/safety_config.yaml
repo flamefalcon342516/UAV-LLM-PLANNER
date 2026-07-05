@@ -1,0 +1,59 @@
+# Safety constraints enforced by the validator before any mission executes.
+# These are hard limits — missions violating them are rejected entirely.
+
+altitude:
+  min_m: 2        # Never fly below 2m AGL
+  max_m: 120      # 400ft FAA-equivalent ceiling for SITL demo
+
+speed:
+  max_groundspeed_ms: 20   # 72 km/h upper bound
+  min_groundspeed_ms: 0.5
+
+mission:
+  max_waypoints: 50
+  max_loops: 10
+  max_loiter_s: 300
+
+# Geofence: lat/lon bounding box around SITL default home (Canberra CMAC)
+# The executor rejects missions where any waypoint falls outside this box.
+geofence:
+  enabled: true
+  # Centre: ArduPilot SITL default home -35.363261, 149.165230
+  lat_min: -35.400
+  lat_max: -35.320
+  lon_min: 149.120
+  lon_max: 149.220
+
+# MAVLink connection
+mavlink:
+  connection_string: "udp:127.0.0.1:14550"
+  timeout_s: 30
+  heartbeat_timeout_s: 5
+
+# Arming & pre-flight
+preflight:
+  require_gps_fix: true
+  min_battery_pct: 20
+  home_distance_check_m: 200   # Warn if home is >200m from expected
+
+# Swarm / multi-vehicle settings (read by swarm_validator.py and swarm_demo.py)
+swarm:
+  max_vehicles: 3
+  min_vehicle_separation_m: 10.0   # Minimum takeoff separation between any two drones
+  formation_types:
+    - line
+    - column
+    - wedge
+    - triangle
+    - diamond
+    - custom
+    - leader_follower
+  vehicle_ids:
+    - copter_1
+    - copter_2
+    - copter_3
+  # MAVLink connection string per vehicle (must match SITL --out flags)
+  connections:
+    copter_1: "udp:127.0.0.1:14550"
+    copter_2: "udp:127.0.0.1:14560"
+    copter_3: "udp:127.0.0.1:14570"

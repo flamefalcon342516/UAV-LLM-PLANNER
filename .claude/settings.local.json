@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ps -o pid,ppid,etime,cmd -p 10350,10371,13355,13584,13587)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

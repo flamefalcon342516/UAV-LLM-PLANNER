@@ -1,0 +1,155 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UAV Swarm Mission",
+  "description": "Validated swarm mission for multi-vehicle ArduPilot operations",
+  "type": "object",
+  "required": [
+    "mission_id",
+    "created_at",
+    "mission_type",
+    "formation",
+    "vehicles",
+    "parameters",
+    "home_location",
+    "waypoints"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "mission_id": {
+      "type": "string",
+      "description": "Unique mission identifier"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 creation timestamp"
+    },
+    "natural_language_input": {
+      "type": "string",
+      "description": "Original operator prompt"
+    },
+    "mission_type": {
+      "type": "string",
+      "enum": ["swarm"]
+    },
+    "formation": {
+      "type": "object",
+      "required": ["type", "spacing_m", "leader_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["line", "column", "wedge", "triangle", "diamond", "custom", "leader_follower"]
+        },
+        "spacing_m": {
+          "type": "number",
+          "minimum": 5.0,
+          "maximum": 100.0
+        },
+        "leader_id": {
+          "type": "string"
+        },
+        "custom_offsets": {
+          "type": "object",
+          "description": "Per-vehicle absolute (fwd_m, right_m) offsets — only used when type is 'custom'",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["fwd_m", "right_m"],
+            "additionalProperties": false,
+            "properties": {
+              "fwd_m":   { "type": "number" },
+              "right_m": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "vehicles": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["copter_1", "copter_2", "copter_3"]
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "required": ["altitude_m", "groundspeed_ms", "loops", "return_to_home"],
+      "additionalProperties": false,
+      "properties": {
+        "altitude_m":      { "type": "number",  "minimum": 2,   "maximum": 120 },
+        "groundspeed_ms":  { "type": "number",  "minimum": 0.5, "maximum": 20  },
+        "loops":           { "type": "integer", "minimum": 1,   "maximum": 10  },
+        "return_to_home":  { "type": "boolean" },
+        "loiter_time_s":   { "type": "number",  "minimum": 0,   "maximum": 300, "default": 0 }
+      }
+    },
+    "home_location": {
+      "type": "object",
+      "required": ["lat", "lon", "alt_m"],
+      "additionalProperties": false,
+      "properties": {
+        "lat":   { "type": "number", "minimum": -90,   "maximum": 90   },
+        "lon":   { "type": "number", "minimum": -180,  "maximum": 180  },
+        "alt_m": { "type": "number", "minimum": -500,  "maximum": 9000 }
+      }
+    },
+    "waypoints": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "description": "Leader's reference route. Followers receive offset copies computed by the formation planner.",
+      "items": {
+        "type": "object",
+        "required": ["id", "lat", "lon", "alt_m"],
+        "additionalProperties": false,
+        "properties": {
+          "id":     { "type": "integer", "minimum": 1 },
+          "lat":    { "type": "number",  "minimum": -90,  "maximum": 90  },
+          "lon":    { "type": "number",  "minimum": -180, "maximum": 180 },
+          "alt_m":  { "type": "number",  "minimum": 2,    "maximum": 120 },
+          "action": {
+            "type": "string",
+            "enum": ["none", "loiter", "takeoff", "land", "photo"],
+            "default": "none"
+          },
+          "hold_s": { "type": "number", "minimum": 0, "maximum": 300, "default": 0 }
+        }
+      }
+    },
+    "vehicle_overrides": {
+      "type": "object",
+      "description": "Optional per-vehicle custom waypoint routes (split / independent missions)",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["waypoints"],
+        "additionalProperties": false,
+        "properties": {
+          "waypoints": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "required": ["id", "lat", "lon", "alt_m"],
+              "additionalProperties": false,
+              "properties": {
+                "id":     { "type": "integer", "minimum": 1 },
+                "lat":    { "type": "number",  "minimum": -90,  "maximum": 90  },
+                "lon":    { "type": "number",  "minimum": -180, "maximum": 180 },
+                "alt_m":  { "type": "number",  "minimum": 2,    "maximum": 120 },
+                "action": {
+                  "type": "string",
+                  "enum": ["none", "loiter", "takeoff", "land", "photo"],
+                  "default": "none"
+                },
+                "hold_s": { "type": "number", "minimum": 0, "maximum": 300, "default": 0 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

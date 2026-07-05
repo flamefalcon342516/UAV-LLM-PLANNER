@@ -1,0 +1,32 @@
+{
+  "mission_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "created_at": "2025-01-15T11:00:00Z",
+  "natural_language_input": "Do a grid survey at 30 metres then come back",
+  "vehicle_id": "copter_1",
+  "home_location": {
+    "lat": -35.363261,
+    "lon": 149.165230,
+    "alt_m": 0
+  },
+  "parameters": {
+    "altitude_m": 30,
+    "groundspeed_ms": 8,
+    "loops": 1,
+    "return_to_home": true,
+    "loiter_time_s": 2
+  },
+  "waypoints": [
+    {"id": 1, "lat": -35.362461, "lon": 149.163930, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 2, "lat": -35.362461, "lon": 149.164830, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 3, "lat": -35.362461, "lon": 149.165730, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 4, "lat": -35.362461, "lon": 149.166630, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 5, "lat": -35.363261, "lon": 149.166630, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 6, "lat": -35.363261, "lon": 149.165730, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 7, "lat": -35.363261, "lon": 149.164830, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 8, "lat": -35.363261, "lon": 149.163930, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 9, "lat": -35.364061, "lon": 149.163930, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 10,"lat": -35.364061, "lon": 149.164830, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 11,"lat": -35.364061, "lon": 149.165730, "alt_m": 30, "action": "photo", "hold_s": 2},
+    {"id": 12,"lat": -35.364061, "lon": 149.166630, "alt_m": 30, "action": "photo", "hold_s": 2}
+  ]
+}

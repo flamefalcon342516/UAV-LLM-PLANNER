@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UAV Mission",
+  "description": "Validated mission plan for autonomous UAV operations",
+  "type": "object",
+  "required": ["mission_id", "created_at", "vehicle_id", "parameters", "waypoints"],
+  "additionalProperties": false,
+  "properties": {
+    "mission_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique mission identifier"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp"
+    },
+    "natural_language_input": {
+      "type": "string",
+      "description": "Original operator prompt"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Target vehicle identifier"
+    },
+    "home_location": {
+      "type": "object",
+      "required": ["lat", "lon", "alt_m"],
+      "additionalProperties": false,
+      "properties": {
+        "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+        "alt_m": { "type": "number", "minimum": -500, "maximum": 9000 }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "required": ["altitude_m", "groundspeed_ms", "loops", "return_to_home"],
+      "additionalProperties": false,
+      "properties": {
+        "altitude_m": {
+          "type": "number",
+          "minimum": 2,
+          "maximum": 120,
+          "description": "Cruise altitude in metres AGL"
+        },
+        "groundspeed_ms": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 20,
+          "description": "Target ground speed in m/s"
+        },
+        "loops": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Number of times to repeat the waypoint sequence"
+        },
+        "return_to_home": {
+          "type": "boolean",
+          "description": "Return to launch point after mission"
+        },
+        "loiter_time_s": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 300,
+          "default": 0,
+          "description": "Time to loiter at each waypoint in seconds"
+        }
+      }
+    },
+    "waypoints": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["id", "lat", "lon", "alt_m"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "lat": { "type": "number", "minimum": -90, "maximum": 90 },
+          "lon": { "type": "number", "minimum": -180, "maximum": 180 },
+          "alt_m": { "type": "number", "minimum": 2, "maximum": 120 },
+          "action": {
+            "type": "string",
+            "enum": ["none", "loiter", "takeoff", "land", "photo"],
+            "default": "none"
+          },
+          "hold_s": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 300,
+            "default": 0
+          }
+        }
+      }
+    }
+  }
+}
