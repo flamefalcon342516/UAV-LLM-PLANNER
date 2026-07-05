@@ -150,12 +150,12 @@ class MissionValidator:
 
             # The last waypoint of a closed loop/circle is intentionally
             # identical to the first — that's not a duplicate.
+
             is_closing_waypoint = (
                 idx == last_idx and idx > 0 and key == first_key
             )
 
             if key in seen and not is_closing_waypoint:
-
                 errors.append(
                     f"Duplicate waypoint {wp['id']}."
                 )
@@ -163,21 +163,16 @@ class MissionValidator:
             seen.add(key)
 
         for wp in waypoints:
-
             if wp["alt_m"] < s["altitude"]["min_m"]:
-
                 errors.append(
                     f"Waypoint {wp['id']} below minimum altitude."
                 )
-
             if wp["alt_m"] > s["altitude"]["max_m"]:
-
                 errors.append(
                     f"Waypoint {wp['id']} exceeds altitude ceiling."
                 )
 
         if s["geofence"]["enabled"]:
-
             errors.extend(
                 self._check_geofence(
                     waypoints,
@@ -196,11 +191,8 @@ class MissionValidator:
         )
 
         for i in range(len(waypoints) - 1):
-
             a = waypoints[i]
-
             b = waypoints[i + 1]
-
             d = haversine(
                 a["lat"],
                 a["lon"],
@@ -209,24 +201,20 @@ class MissionValidator:
             )
 
             if d < min_spacing:
-
                 errors.append(
                     f"Waypoints {a['id']} and {b['id']} "
                     f"are only {d:.1f} m apart."
                 )
 
             if d > max_spacing:
-
                 errors.append(
                     f"Waypoints {a['id']} and {b['id']} "
                     f"are {d:.1f} m apart."
                 )
 
         if loops > 1 and len(waypoints) >= 2:
-
             first = waypoints[0]
             last = waypoints[-1]
-
             d = haversine(
                 first["lat"],
                 first["lon"],
@@ -235,20 +223,16 @@ class MissionValidator:
             )
 
             if d > 5:
-
                 errors.append(
                     "Loop mission does not end at the starting waypoint."
                 )
 
         if "lat" not in home or "lon" not in home:
-
             errors.append(
                 "Mission missing home location."
             )
 
         return errors
-
-    # --------------------------------------------------------
 
     def _check_geofence(
         self,
@@ -257,12 +241,9 @@ class MissionValidator:
     ):
 
         errors = []
-
         for wp in waypoints:
-
             lat = wp["lat"]
             lon = wp["lon"]
-
             if not (
                 fence["lat_min"]
                 <= lat
@@ -288,8 +269,5 @@ class MissionValidator:
         return errors
 
 
-# ------------------------------------------------------------
-
 def validate_mission(mission):
-
     return MissionValidator().validate(mission)

@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""
-Omokai UAV Demo — end-to-end pipeline
-======================================
-  Prompt → LLM → Validated Mission JSON → Deterministic Executor → ArduPilot SITL
-
-Usage:
-  python3 main.py                         # Interactive prompt
-  python3 main.py --prompt "Patrol the perimeter twice at 15 metres"
-  python3 main.py --prompt "..." --auto-arm      # Skip manual arm
-  python3 main.py --vision person                # Enable vision + follow
-  python3 main.py --dry-run                      # Plan + validate only, no fly
-"""
 import argparse
 import json
 import os
@@ -53,7 +41,6 @@ def confirm(prompt: str = "Execute this mission? [y/N] ") -> bool:
 
 def main():
     banner()
-
     parser = argparse.ArgumentParser(description="Omokai UAV Demo")
     parser.add_argument("--prompt", type=str, help="Natural-language mission instruction")
     parser.add_argument("--auto-arm", action="store_true", help="Arm automatically (no manual confirmation)")

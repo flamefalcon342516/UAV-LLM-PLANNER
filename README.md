@@ -10,12 +10,12 @@ End-to-end autonomous drone pipeline: give a natural-language command, watch the
 Operator Prompt (natural language)
           │
           ▼
-   ┌─────────────┐
-   │ LLM Planner │  DeepSeek (aicredits.in) — interprets intent, emits JSON.
-   │(single_drone/│  The LLM NEVER touches the vehicle. It proposes only.
-   │ src/llm_    │
-   │ planner.py) │
-   └──────┬──────┘
+   ┌───────────────┐
+   │ LLM Planner   │  DeepSeek (aicredits.in) — interprets intent, emits JSON.
+   │(single_drone/ │  The LLM NEVER touches the vehicle. It proposes only.
+   │ src/llm_      │
+   │ planner.py)   │
+   └──────┬────────┘
           │  Mission JSON (uuid, waypoints, alt, speed, loops…)
           ▼
    ┌──────────────────────┐
@@ -33,33 +33,9 @@ Operator Prompt (natural language)
             │  MAVLink (UDP 14550)
             ▼
    ┌────────────────────────┐
-   │ArduPilot SITL          │  Full ArduCopter flight stack running in
-   │+ Gazebo Harmonic (gz)  │  simulation against a Gazebo Harmonic world.
+   │     ArduPilot SITL     │  Full ArduCopter flight stack running in  
    └────────────────────────┘
 ```
-
-### Key design guarantees
-
-| Guarantee | How it's enforced |
-|---|---|
-| LLM never in control loop | `llm_planner.py` is never imported by `mission_executor.py` |
-| Same JSON = same flight | Executor is pure function: JSON → MAVLink sequence |
-| Mission auditable | Full JSON written to disk before execution |
-| Mission blocked if unsafe | Validator rejects before executor is called |
-
----
-
-## Stack
-
-| Component | Choice | Why |
-|---|---|---|
-| Simulator | ArduPilot SITL + Gazebo Harmonic | Industry-standard flight stack; real ArduCopter code runs in-the-loop |
-| Vehicle control | pymavlink | Lightweight, no ROS dependency for the core path |
-| LLM | DeepSeek (aicredits.in, OpenAI-compatible) | Fast, cheap, follows structured output reliably |
-| Validation | jsonschema + custom safety rules | Deterministic; schema-first design |
-| Vision (Challenge 3) | YOLOv8 (ultralytics) + OpenCV | State-of-the-art real-time detection |
-
----
 
 ## Quick Start (native, Ubuntu 22.04)
 
@@ -75,35 +51,27 @@ pip3 install -r requirements.txt
 ```bash
 export LLM_API_KEY="sk-live-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
+### Will be shared on personal mail, it's my purchased Deepseek-v4-pro/API_KEY
 
 ### 3. Start the simulator (Terminal 1)
 
 ```bash
-# Makes sure gz_ws is built and starts Gazebo + SITL
 ./single_drone/sim/launch_sitl.sh
 ```
-
 Wait until you see `ArduCopter` and `EKF3 IMU0 is using GPS` in the SITL console.
+Helps prevent Arm and takeoff cmd failures.!!
 
 ### 4. Run the demo (Terminal 2)
 
 ```bash
 cd single_drone
-
-# Interactive mode
 python3 main.py
-
-# Or pass a prompt directly
 python3 main.py --prompt "Patrol the perimeter loop twice at 15 metres"
-
-# Dry run — plan + validate without flying
-python3 main.py --prompt "Hover at 20 metres for 10 seconds then return" --dry-run
-
-# Load a pre-built mission JSON (no API key needed)
-python3 main.py --load missions/examples/patrol_loop.json --auto-arm
+python3 main.py --prompt "Patrol the perimeter loop twice at 15 metres" --auto-arm
+python3 main.py --load missions/examples/patrol_loop.json --auto-arm         # the example json used for testing
 ```
 
-### 5. Example prompts
+### 5. Example prompts (All verified,, sometime it might throw the LLM Timeout error, thats bcs of the slow API endpoint)
 
 ```
 "Patrol the perimeter loop twice at 15 metres"
@@ -113,39 +81,28 @@ python3 main.py --load missions/examples/patrol_loop.json --auto-arm
 "Inspect the area — three slow passes at 20 metres"
 ```
 
----
-
 ## Multi-UAV Quick Start
 
 ### 1. Start N SITL instances (Terminal 1)
 
 ```bash
-# Launches a tmux session with 2 or 3 ArduCopter SITL instances + a combined map
+# Launches a tmux session with 3 ArduCopter SITL instances + a combined map (if 3, not mentioned default 3 drones spawn)
 ./multi_uav/sim/launch_swarm_sitl.sh 3
 ```
-
+Wait for `25 sec`, for the combined mavproxy instance to open , which has all the three drones as updin
 Wait for `EKF3 IMU0 is using GPS` in all vehicle console panes.
 
 ### 2. Run the swarm demo (Terminal 2, or the tmux pane it opens)
 
 ```bash
 cd multi_uav
-
-# Interactive mode
 python3 swarm_main.py
-
-# Or pass a prompt directly
 python3 swarm_main.py --prompt "Fly 3 drones in wedge formation at 20 metres"
-
-# Dry run — plan, validate, and print the formation without connecting
-python3 swarm_main.py --load missions/examples/wedge_3drones.json --dry-run
-
+python3 swarm_main.py --prompt "Fly 3 drones in wedge formation at 20 metres" --auto-arm
 # Load a pre-built swarm mission JSON (no API key needed)
 python3 swarm_main.py --load missions/examples/wedge_3drones.json --auto-arm
 python3 swarm_main.py --load missions/examples/line_2drones.json --auto-arm
 ```
-
----
 
 ## Docker (portable, examiner machine)
 
@@ -200,8 +157,6 @@ Safety rules enforced by `MissionValidator` before any execution:
 - `groundspeed_ms` must be 0.5–20 m/s
 - All waypoints must fall within the geofence bounding box
 - Schema violations (wrong types, missing fields) are rejected
-
----
 
 ## Challenge 3 — Vision AI Target Detection + Follow
 

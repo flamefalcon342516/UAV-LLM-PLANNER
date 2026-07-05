@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 """
-Omokai UAV — Swarm Formation Demo
-===================================
-  Prompt → LLM → Swarm JSON → Validator → Formation Planner → Swarm Executor → N SITL vehicles
-
-Usage:
-  python3 swarm_main.py
-  python3 swarm_main.py --prompt "Fly 3 drones in wedge formation at 20 metres"
-  python3 swarm_main.py --prompt "Two drones side by side patrol at 15m" --auto-arm
-  python3 swarm_main.py --load missions/examples/wedge_3drones.json --auto-arm
-  python3 swarm_main.py --prompt "..." --dry-run
-  python3 swarm_main.py --load missions/examples/line_2drones.json --dry-run
+Omokai UAV — Swarm Formation
 """
 
 import argparse

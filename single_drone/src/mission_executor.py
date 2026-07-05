@@ -1,13 +1,13 @@
 """
 Deterministic Mission Executor — the only layer that talks to the vehicle.
-
-Contract:
   • Receives only VALIDATED mission dicts.
-  • The same JSON always produces the same MAVLink command sequence.
   • The LLM is never imported here; this layer is completely isolated.
-  • All decisions are rule-based: read JSON → issue MAVLink → wait → repeat.
+Uses pymavlink directly
 
-Uses pymavlink directly for maximum portability (no ROS dependency).
+Waypoints are flown one at a time in GUIDED mode via SET_POSITION_TARGET_GLOBAL_INT
+setpoints, rather than uploaded as an AUTO mission list. This avoids the
+MISSION_COUNT / MISSION_REQUEST / MISSION_ITEM upload handshake entirely, which
+was consistently failing (MAV_MISSION_INVALID_SEQUENCE) against this SITL setup.
 """
 
 import math
@@ -19,6 +19,8 @@ import yaml
 from pathlib import Path
 from pymavlink import mavutil
 
+from .mission_validator import haversine
+
 _CONFIG_DIR = Path(__file__).parent.parent / "config"
 
 
@@ -26,16 +28,23 @@ def _load_safety() -> dict:
     with open(_CONFIG_DIR / "safety_config.yaml") as f:
         return yaml.safe_load(f)
 
-MAV_CMD_NAV_WAYPOINT = 16
-MAV_CMD_NAV_LOITER_TIME = 19
-MAV_CMD_NAV_RETURN_TO_LAUNCH = 20
 MAV_CMD_NAV_TAKEOFF = 22
 MAV_CMD_DO_CHANGE_SPEED = 178
 
-MAV_FRAME_GLOBAL_RELATIVE_ALT = 3
+MAV_FRAME_GLOBAL_RELATIVE_ALT_INT = 6
+
+POSITION_TARGET_TYPEMASK_POSITION_ONLY = (
+    mavutil.mavlink.POSITION_TARGET_TYPEMASK_VX_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_VY_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_VZ_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AX_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AY_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_AZ_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_IGNORE
+    | mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE
+)
 
 MODE_GUIDED = "GUIDED"
-MODE_AUTO = "AUTO"
 MODE_LOITER = "LOITER"
 MODE_RTL = "RTL"
 
@@ -82,13 +91,13 @@ class MissionExecutor:
             self._mav.target_component,
             mavutil.mavlink.MAV_DATA_STREAM_ALL,
             rate_hz,
-            1,  # start streaming
+            1,          # start streaming
         )
 
     def execute(self, mission: dict, auto_arm: bool = False) -> ExecutionStatus:
         """
         Execute a validated mission dict.
-        Steps: arm → takeoff → upload waypoints → AUTO → monitor → RTL/land.
+        Steps: arm → takeoff → fly each waypoint in GUIDED → RTL/land.
         """
         if self._mav is None:
             self.connect()
@@ -110,8 +119,6 @@ class MissionExecutor:
 
         self._log(f"Starting mission {mid}")
         self._log(f"  {len(waypoints)} waypoints × {loops} loops @ {alt} m / {speed} m/s")
-
-        # 1. Set ground speed
         self._set_speed(speed)
 
         # 2. Enter GUIDED first — ArduCopter arms cleanly here without RC,
@@ -130,21 +137,15 @@ class MissionExecutor:
         self._status.state = "takeoff"
         self._guided_takeoff(alt)
 
-        # 4. Build and upload mission for AUTO mode
+        # 4. Fly each waypoint in GUIDED mode, one at a time
         self._status.state = "executing"
-        self._upload_mission(waypoints, alt, speed, loops, rtl)
+        self._fly_waypoints_guided(waypoints, alt, loops)
 
-        # 5. Switch to AUTO
-        self._set_mode(MODE_AUTO)
-        self._log("AUTO mode set — mission executing")
-
-        # 6. Monitor progress
-        self._monitor_mission(len(waypoints) * loops)
-
-        # 7. Wait for RTL / landing
+        # 5. Switch to RTL and wait for landing
         if rtl:
             self._status.state = "rtl"
-            self._log("Mission complete — RTL")
+            self._log("Mission complete — switching to RTL")
+            self._set_mode(MODE_RTL)
             self._wait_landed()
 
         self._status.state = "done"
@@ -252,136 +253,81 @@ class MissionExecutor:
                 return
         raise TimeoutError(f"Mode change to {mode_name} timed out")
 
-    def _upload_mission(
+    def _fly_waypoints_guided(
         self,
         waypoints: list,
         cruise_alt: float,
-        speed_ms: float,
         loops: int,
-        rtl: bool,
+        wp_radius_m: float = 2.0,
     ):
-        """Build and upload MAVLink mission items from the JSON waypoints."""
-        items = []
-        wp_idx = 0
-
-        # Item 0: dummy home (required by ArduPilot as item 0)
-        items.append(
-            self._mav.mav.mission_item_int_encode(
-                self._mav.target_system,
-                self._mav.target_component,
-                wp_idx, MAV_FRAME_GLOBAL_RELATIVE_ALT,
-                MAV_CMD_NAV_WAYPOINT,
-                0, 1, 0, 0, 0, 0,
-                0, 0, 0,  # lat/lon/alt as 0 = use current
-            )
-        )
-        wp_idx += 1
-
-        # Repeat waypoints for the requested number of loops
+        """
+        Fly each waypoint sequentially in GUIDED mode using position setpoints.
+        No mission upload — the vehicle only ever knows about the ONE waypoint
+        it's currently flying to.
+        """
+        total = len(waypoints) * loops
+        count = 0
         for loop in range(loops):
+            self._status.loop = loop + 1
             for wp in waypoints:
+                count += 1
+                alt = wp.get("alt_m", cruise_alt)
+                self._status.current_wp = count
+                self._log(
+                    f"  → WP {count}/{total}: lat={wp['lat']:.6f} "
+                    f"lon={wp['lon']:.6f} alt={alt} m"
+                )
+                self._goto_position(wp["lat"], wp["lon"], alt)
+                self._wait_reached(wp["lat"], wp["lon"], alt, radius_m=wp_radius_m)
                 hold = wp.get("hold_s", 0)
-                action = wp.get("action", "none")
-                cmd = (
-                    MAV_CMD_NAV_LOITER_TIME if action == "loiter"
-                    else MAV_CMD_NAV_WAYPOINT
-                )
-                items.append(
-                    self._mav.mav.mission_item_int_encode(
-                        self._mav.target_system,
-                        self._mav.target_component,
-                        wp_idx,
-                        MAV_FRAME_GLOBAL_RELATIVE_ALT,
-                        cmd,
-                        0, 1,
-                        hold, 0, 0, 0,
-                        int(wp["lat"] * 1e7),
-                        int(wp["lon"] * 1e7),
-                        wp.get("alt_m", cruise_alt),
-                    )
-                )
-                wp_idx += 1
+                if hold:
+                    self._log(f"    Holding {hold}s …")
+                    time.sleep(hold)
+        self._log("All waypoints reached.")
 
-        if rtl:
-            items.append(
-                self._mav.mav.mission_item_int_encode(
-                    self._mav.target_system,
-                    self._mav.target_component,
-                    wp_idx, MAV_FRAME_GLOBAL_RELATIVE_ALT,
-                    MAV_CMD_NAV_RETURN_TO_LAUNCH,
-                    0, 1, 0, 0, 0, 0, 0, 0, 0,
-                )
-            )
-
-        self._log(f"Uploading {len(items)} mission items …")
-
-        self._mav.mav.mission_count_send(
-            self._mav.target_system,
-            self._mav.target_component,
-            len(items),
+    def _goto_position(self, lat: float, lon: float, alt_m: float):
+        self._mav.mav.set_position_target_global_int_send(
+            0,  # time_boot_ms — unused
+            self._mav.target_system, self._mav.target_component,
+            MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+            POSITION_TARGET_TYPEMASK_POSITION_ONLY,
+            int(lat * 1e7), int(lon * 1e7), alt_m,
+            0, 0, 0,     # vx, vy, vz — ignored
+            0, 0, 0,     # afx, afy, afz — ignored
+            0, 0,        # yaw, yaw_rate — ignored
         )
 
-        # Handshake: GCS sends items in response to MISSION_REQUEST
-        ack_type = None
-        expected_idx = 0
-        for _ in range(len(items) * 3):
-            msg = self._mav.recv_match(
-                type=["MISSION_REQUEST", "MISSION_REQUEST_INT", "MISSION_ACK"],
-                blocking=True,
-                timeout=5,
-            )
-            if msg is None:
-                break
-            if msg.get_type() == "MISSION_ACK":
-                ack_type = msg.type
-                break
-            idx = msg.seq
-            self._log(
-                f"  [debug] got {msg.get_type()} seq={idx} "
-                f"(expected {expected_idx}); sending item seq={items[idx].seq if 0 <= idx < len(items) else 'N/A'}"
-            )
-            if idx < len(items):
-                self._mav.mav.send(items[idx])
-                expected_idx = idx + 1
-
-        if ack_type != mavutil.mavlink.MAV_MISSION_ACCEPTED:
-            got = "no ACK (timed out)" if ack_type is None else f"ack type {ack_type}"
-            raise RuntimeError(
-                f"Mission upload failed — {got}. The autopilot likely reported "
-                f"'mission upload timeout' on its console (a dropped MAVLink packet "
-                f"over the UDP relay is the usual cause). Retry the mission."
-            )
-
-        self._log("Mission upload complete.")
-
-    def _monitor_mission(self, total_wp: int, timeout: float = 600):
+    def _wait_reached(
+        self,
+        lat: float,
+        lon: float,
+        alt_m: float,
+        radius_m: float = 2.0,
+        alt_tolerance_m: float = 2.0,
+        timeout: float = 120,
+        resend_period_s: float = 0.5,
+    ):
+        """
+        Wait until the vehicle is within radius_m/alt_tolerance_m of the target,
+        re-sending the setpoint at resend_period_s — ArduPilot reverts to LOITER
+        if GUIDED setpoints stop arriving for too long (external-control timeout).
+        """
         deadline = time.time() + timeout
-        last_wp = -1
+        last_send = 0.0
         while time.time() < deadline:
-            msg = self._mav.recv_match(
-                type=["MISSION_ITEM_REACHED", "MISSION_CURRENT", "HEARTBEAT"],
-                blocking=True,
-                timeout=2,
-            )
-            if msg is None:
-                continue
-            mtype = msg.get_type()
-            if mtype == "MISSION_ITEM_REACHED":
-                seq = msg.seq
-                if seq != last_wp:
-                    last_wp = seq
-                    self._status.current_wp = seq
-                    self._log(f"  → Reached waypoint {seq}/{total_wp}")
-                    if seq >= total_wp:
-                        return
-            elif mtype == "HEARTBEAT":
-                mode = mavutil.mode_string_v10(msg)
-                if "RTL" in mode or "LAND" in mode:
-                    self._log(f"  Mode switched to {mode} — mission complete")
+            if time.time() - last_send > resend_period_s:
+                self._goto_position(lat, lon, alt_m)
+                last_send = time.time()
+            msg = self._mav.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=0.5)
+            if msg:
+                cur_lat = msg.lat / 1e7
+                cur_lon = msg.lon / 1e7
+                cur_alt = msg.relative_alt / 1000.0
+                dist = haversine(cur_lat, cur_lon, lat, lon)
+                if dist <= radius_m and abs(cur_alt - alt_m) <= alt_tolerance_m:
                     return
         raise TimeoutError(
-            f"Mission stalled — last progress was waypoint {last_wp}/{total_wp} "
-            f"({timeout:.0f}s elapsed with no further progress)."
+            f"Timed out flying to waypoint (lat={lat}, lon={lon}, alt={alt_m} m)"
         )
 
     def _wait_altitude(self, target_m: float, tolerance: float = 2.0, timeout: float = 60):

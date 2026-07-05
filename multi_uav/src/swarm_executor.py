@@ -1,32 +1,12 @@
 """
 Swarm Executor — connects to N ArduPilot SITL instances and flies them in formation.
-
-Design:
-  • Pure pymavlink — no dronekit, no ROS dependency.
-  • Each vehicle is driven by its own MissionExecutor instance.
-  • N threads run in lockstep, synchronized by threading.Barrier at every phase.
-  • If any vehicle fails at any phase, barrier.abort() unblocks all other threads
-    cleanly via BrokenBarrierError — no hung threads.
-  • The same per-drone missions always produce the same MAVLink sequence.
-  • The LLM is never imported here.
-
-Phases (all synchronized):
-    1. connect
-    2. wait GPS/EKF (armable)
-    3. arm
-    4. guided takeoff
-    5. upload mission + switch AUTO
-    6. monitor mission completion
-    7. RTL + wait landed
 """
 
 import threading
 import time
 from dataclasses import dataclass
 from typing import List, Optional
-
 from single_drone.src.mission_executor import MissionExecutor, ExecutionStatus
-
 
 @dataclass
 class SwarmStatus:
@@ -34,7 +14,6 @@ class SwarmStatus:
     connection:  str
     status:      ExecutionStatus
     error:       Optional[str] = None
-
 
 class SwarmExecutionError(Exception):
     pass
@@ -45,7 +24,6 @@ class SwarmExecutor:
     Flies N drones through their individually-computed missions, keeping all
     vehicles phase-synchronized via threading.Barrier checkpoints.
     """
-
     # Maximum seconds any vehicle may spend in a single phase before the
     # barrier raises BrokenBarrierError and aborts the entire swarm.
     _PHASE_TIMEOUT = 240.0
@@ -61,20 +39,6 @@ class SwarmExecutor:
         per_drone_missions: List[dict],
         auto_arm: bool = False,
     ) -> List[SwarmStatus]:
-        """
-        Execute one validated mission per drone, synchronized at each flight phase.
-
-        Args:
-            per_drone_missions: Per-drone mission dicts from FormationPlanner.plan().
-                                Must be in the same order as connection_strings.
-            auto_arm:           True = arm automatically; False = wait for manual arm.
-
-        Returns:
-            List[SwarmStatus], one per vehicle, in input order.
-
-        Raises:
-            SwarmExecutionError if any vehicle fails.
-        """
         if len(per_drone_missions) != self._n:
             raise ValueError(
                 f"Received {len(per_drone_missions)} missions "
@@ -130,29 +94,22 @@ class SwarmExecutor:
                 ex._guided_takeoff(alt)
                 sync("altitude")
 
-                # ── Phase 5: Upload mission + switch to AUTO ────────────────
+                # ── Phase 5: Fly each waypoint in GUIDED mode ────────────────
                 ex._status.state = "executing"
-                self._log(idx, vid, "Uploading mission …")
-                ex._upload_mission(
+                self._log(idx, vid, "Flying waypoints (GUIDED) …")
+                ex._fly_waypoints_guided(
                     mission["waypoints"],
                     alt,
-                    params["groundspeed_ms"],
                     params["loops"],
-                    params["return_to_home"],
                 )
-                ex._set_mode("AUTO")
-                self._log(idx, vid, "AUTO — formation flying …")
-                sync("auto")
-
-                # ── Phase 6: Monitor mission completion ─────────────────────
-                total_wp = len(mission["waypoints"]) * params["loops"]
-                ex._monitor_mission(total_wp)
+                self._log(idx, vid, "Waypoints complete.")
                 sync("complete")
 
-                # ── Phase 7: RTL + wait landed ──────────────────────────────
+                # ── Phase 6: RTL + wait landed ───────────────────────────────
                 if params.get("return_to_home", True):
                     ex._status.state = "rtl"
                     self._log(idx, vid, "RTL — waiting for landing …")
+                    ex._set_mode("RTL")
                     ex._wait_landed()
 
                 ex._status.state = "done"

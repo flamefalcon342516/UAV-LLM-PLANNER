@@ -18,7 +18,7 @@ def _client() -> OpenAI:
     return OpenAI(
         base_url=API_URL,
         api_key=os.environ["LLM_API_KEY"],
-        timeout=30.0,
+        timeout=50.0,
     )
 
 
@@ -108,14 +108,13 @@ VEHICLE SELECTION
 
 "2 drones" or "two drones" → vehicles: ["copter_1", "copter_2"]
 "3 drones" or "three drones" → vehicles: ["copter_1", "copter_2", "copter_3"]
-If unspecified, default to 2 drones.
+If unspecified, default to 3 drones.
 Only use these IDs: "copter_1", "copter_2", "copter_3".
 No duplicates in the vehicles list.
 
 ====================================================================
 SAFETY RULES
 ====================================================================
-
 Altitude:
 - 5 ≤ altitude_m ≤ 100
 - Every waypoint alt_m MUST equal parameters.altitude_m exactly.

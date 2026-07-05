@@ -44,7 +44,7 @@ Output exactly one JSON object with this structure:
   },
 
   "parameters": {
-    "altitude_m": <number>,
+    "altitude_m": 15,
     "groundspeed_ms": <number>,
     "loops": <integer>,
     "return_to_home": true,

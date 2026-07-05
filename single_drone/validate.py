@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-Quick unit tests for the pipeline stages (no SITL/Gazebo needed).
+Quick unit tests for the pipeline stages 
 Run: python3 validate.py
+Used in initial testing of the mission validator and LLM planner. Not part of the main submission.
+
 """
+
 import json
 import sys
 import os

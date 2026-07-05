@@ -194,9 +194,25 @@ class SwarmMissionValidator:
 
         # Duplicate coordinates
         seen: set = set()
-        for wp in waypoints:
+        last_idx = len(waypoints) - 1
+        first_key = None
+        if waypoints:
+            first_key = (
+                round(waypoints[0]["lat"], 7),
+                round(waypoints[0]["lon"], 7),
+                round(waypoints[0]["alt_m"], 2),
+            )
+
+        for idx, wp in enumerate(waypoints):
             key = (round(wp["lat"], 7), round(wp["lon"], 7), round(wp["alt_m"], 2))
-            if key in seen:
+
+            # The last waypoint of a closed loop/circle is intentionally
+            # identical to the first — that's not a duplicate.
+            is_closing_waypoint = (
+                idx == last_idx and idx > 0 and key == first_key
+            )
+
+            if key in seen and not is_closing_waypoint:
                 errors.append(
                     f"Duplicate waypoint coordinates at id={wp['id']}."
                 )
