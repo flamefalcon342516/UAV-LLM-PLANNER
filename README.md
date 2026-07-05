@@ -158,47 +158,6 @@ Safety rules enforced by `MissionValidator` before any execution:
 - All waypoints must fall within the geofence bounding box
 - Schema violations (wrong types, missing fields) are rejected
 
-## Challenge 3 — Vision AI Target Detection + Follow
-
-```bash
-cd single_drone
-
-# With vision enabled (detects "person" by default)
-python3 main.py --prompt "Patrol at 15m" --vision person
-
-# Detect cars
-python3 main.py --load missions/examples/patrol_loop.json --vision car --auto-arm
-```
-
-**How it works:**
-
-1. `TargetDetector` (`single_drone/src/vision/detector.py`) runs YOLOv8n on the camera feed.
-2. On detection of the configured class:
-   - Saves a timestamped JPEG snapshot to `snapshots/`
-   - Prints an alert to the operator console
-   - Fires the `on_detect` callback
-3. `TargetFollower` (`single_drone/src/vision/follower.py`) receives the callback:
-   - Switches the drone to GUIDED mode
-   - Issues velocity setpoints (proportional control on pixel error → yaw rate)
-   - Returns to LOITER if target lost for > 3 seconds
-
-**Camera source:** defaults to OpenCV camera 0. For the full Gazebo setup,
-replace with the GStreamer pipeline:
-```python
-detector = TargetDetector(
-    target_class="person",
-    camera_source="udpsrc port=5600 ! application/x-rtp,encoding-name=H264 ! "
-                  "rtph264depay ! avdec_h264 ! videoconvert ! appsink"
-)
-```
-
-**Install vision dependencies:**
-```bash
-pip3 install ultralytics opencv-python
-```
-
----
-
 ## Challenge 1 — Multi-Agent Formation
 
 **Implemented in `multi_uav/`** (mirrors the single-drone pipeline, one stage per file):
@@ -211,33 +170,6 @@ pip3 install ultralytics opencv-python
 
 Entry point: `multi_uav/swarm_main.py`. Tests: `multi_uav/swarm_validate.py`. See [Multi-UAV Quick Start](#multi-uav-quick-start) below.
 
----
-
-## Challenge 2 — SLAM / Autonomous Navigation (Architecture)
-
-**Approach:**
-
-1. **SLAM**: Use SLAM Toolbox (ROS 2 Humble) with a simulated 2D lidar in Gazebo.
-2. **Navigation**: Replace fixed waypoints with Nav2 goal poses. The LLM emits `{x, y, frame}` goals instead of `{lat, lon}`. The executor calls the Nav2 `NavigateToPose` action server.
-3. **Unknown environment**: Drone explores using a frontier-exploration node. The LLM specifies the search area; the planner decides the path dynamically based on the live map.
-4. **Integration point**: The `MissionExecutor` gets a `nav2` flag in the JSON. If set, it publishes to the Nav2 action server instead of the MAVLink mission upload path.
-
----
-
-## Scaling to Real-World Systems
-
-| Demo limitation | Production fix |
-|---|---|
-| Single agent, SITL | Multi-vehicle with real autopilots; formation controller on companion computer |
-| Claude API (cloud) | Local LLM (Llama 3 / Mistral) for air-gapped ops; Claude as fallback |
-| Simple geofence box | 3D airspace polygon, NOTAM integration, weather-aware ceiling |
-| No operator confirmation loop | Web UI with mission preview map, one-click approve/reject |
-| pymavlink direct | ROS 2 MAVROS for richer sensor fusion and multi-robot middleware |
-| YOLOv8n (nano) | YOLOv8x or RT-DETR on Jetson Orin; send compressed JPEG over 4G |
-| No redundancy | Watchdog heartbeat; automatic RTL on comms loss |
-
----
-
 ## Sources & Licenses
 
 | Source | License | What was taken |
@@ -245,7 +177,6 @@ Entry point: `multi_uav/swarm_main.py`. Tests: `multi_uav/swarm_validate.py`. Se
 | [ArduPilot](https://github.com/ArduPilot/ardupilot) | GPL-3.0 | SITL infrastructure, MAVLink protocol |
 | [ardupilot_gazebo](https://github.com/ArduPilot/ardupilot_gazebo) | GPL-3.0 | Gazebo Harmonic plugin, iris world |
 | [pymavlink](https://github.com/ArduPilot/pymavlink) | LGPL-3.0 | MAVLink Python bindings |
-| [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) | AGPL-3.0 | Detection model + inference API |
 | [jsonschema](https://github.com/python-jsonschema/jsonschema) | MIT | JSON Schema validation |
 | [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python) | MIT | Claude API client |
 | [ChatDrones](https://github.com/Gaurang-1402/ChatDrones) | MIT | Architecture reference for NL→drone pipeline |
