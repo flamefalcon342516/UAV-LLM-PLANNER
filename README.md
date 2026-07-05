@@ -106,24 +106,60 @@ python3 swarm_main.py --load missions/examples/line_2drones.json --auto-arm
 
 ## Docker (portable, examiner machine)
 
+Ubuntu 22.04 + ArduPilot SITL only — no Gazebo, no vision/SLAM deps. Covers both
+single-drone and multi-UAV (2 or 3 vehicles). Both flown end-to-end in testing.
+
 ```bash
 # Build
 docker build -t omokai-uav .
-
-# Run with your API key (requires X11 for Gazebo display)
-docker run -e LLM_API_KEY=$LLM_API_KEY \
-           -e DISPLAY=$DISPLAY \
-           -v /tmp/.X11-unix:/tmp/.X11-unix \
-           omokai-uav \
-           python3 single_drone/main.py --prompt "Patrol the perimeter twice at 15 metres" --auto-arm
 ```
 
-For headless (no display):
+Note: SITL and MAVProxy are launched directly by `docker-entrypoint.sh`,
+bypassing ArduPilot's own `sim_vehicle.py` wrapper — its process supervision
+was found to kill MAVProxy within seconds inside a container, every time,
+regardless of network/timing conditions. Launching the two processes directly
+instead runs indefinitely with no issue.
+
+### Single-drone
+
+Always use `-it` — without it Python's stdout is fully buffered inside Docker
+and you won't see anything until the process exits.
+
 ```bash
-docker run -e LLM_API_KEY=$LLM_API_KEY \
-           omokai-uav \
+# Pre-built mission (no API key needed)
+docker run -it --rm omokai-uav \
            python3 single_drone/main.py --load single_drone/missions/examples/patrol_loop.json --auto-arm
+
+# LLM prompt
+docker run -it --rm -e LLM_API_KEY=$LLM_API_KEY omokai-uav \
+           python3 single_drone/main.py --prompt "Patrol the perimeter loop twice at 15 metres" --auto-arm
 ```
+
+### Multi-UAV
+
+Set `SWARM_DRONES=2` or `3` to start that many SITL instances instead of one:
+
+```bash
+docker run -it -e SWARM_DRONES=3 -e LLM_API_KEY=$LLM_API_KEY omokai-uav bash
+
+# once inside the container:
+cd multi_uav
+python3 swarm_main.py --load missions/examples/wedge_3drones.json --auto-arm
+```
+
+### Watching it live (map + console)
+
+The container proactively forwards telemetry to the Docker bridge gateway, so
+no `-p` port publishing is needed — just run this on your **host** (using your
+native `mavproxy.py`) while a container is running:
+
+```bash
+mavproxy.py --master udp:0.0.0.0:14599 --console --map
+```
+
+Single-drone or multi-UAV, all vehicles show up on this one connection
+(distinguished by sysid) — it's view-only and never touches the actual
+mission-control connections `main.py`/`swarm_main.py` use internally.
 
 ---
 
