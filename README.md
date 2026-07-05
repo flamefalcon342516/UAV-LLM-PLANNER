@@ -106,7 +106,7 @@ python3 swarm_main.py --load missions/examples/line_2drones.json --auto-arm
 
 ## Docker (portable, examiner machine)
 
-Ubuntu 22.04 + ArduPilot SITL only — no Gazebo, no vision/SLAM deps. Covers both
+Ubuntu 22.04 + ArduPilot SITL only 
 single-drone and multi-UAV (2 or 3 vehicles). Both flown end-to-end in testing.
 
 ```bash
@@ -130,7 +130,7 @@ and you won't see anything until the process exits.
 docker run -it --rm omokai-uav \
            python3 single_drone/main.py --load single_drone/missions/examples/patrol_loop.json --auto-arm
 
-# LLM prompt
+# LLM prompt (API Key to be shared via mail)
 docker run -it --rm -e LLM_API_KEY=$LLM_API_KEY omokai-uav \
            python3 single_drone/main.py --prompt "Patrol the perimeter loop twice at 15 metres" --auto-arm
 ```
@@ -161,7 +161,6 @@ Single-drone or multi-UAV, all vehicles show up on this one connection
 (distinguished by sysid) — it's view-only and never touches the actual
 mission-control connections `main.py`/`swarm_main.py` use internally.
 
----
 
 ## Mission JSON Format
 
